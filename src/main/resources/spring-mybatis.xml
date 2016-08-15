@@ -9,8 +9,8 @@
                         http://www.springframework.org/schema/context/spring-context-3.1.xsd  
                         http://www.springframework.org/schema/mvc  
                         http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd">
-                        
-                        
+
+
 	<!-- 自动扫描 -->
 	<context:component-scan base-package="com.*" />
 	<!-- 引入配置文件 -->
@@ -57,9 +57,60 @@
 	</bean>
 
 
-	<!--配置静态资源，直接映射到对应的文件夹，不被DispatcherServlet处理，3.04新增功能，需要重新设置spring-mvc-3.0.xsd-->
-	<mvc:resources mapping="/css/**"    location="/WEB-INF/css/" />
+	<!--配置静态资源，直接映射到对应的文件夹，不被DispatcherServlet处理，3.04新增功能，需要重新设置spring-mvc-3.0.xsd -->
+	<mvc:resources mapping="/css/**" location="/WEB-INF/css/" />
 	<mvc:annotation-driven />
+
+	<!-- 用户登录 缓存管理 -->
+	<bean id="loginCacheManager" class="org.apache.shiro.cache.MemoryConstrainedCacheManager"></bean>
+
+	<!-- Shiro安全管理器 -->
+	<bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+		<!-- <property name="realm" ref="jdbcRealm"></property>  -->
+		<property name="realm" ref="myRealm"></property>
+		<property name="cacheManager" ref="loginCacheManager"></property> 
+       <!--注入缓存管理器 <property name="cacheManager" ref="shiroEhcacheManager"></property>   -->  
+	</bean>
 	
+	<bean id = "myRealm"  class = "com.controller.UserRealm"></bean>
+	
+	<bean id="logout" class="org.apache.shiro.web.filter.authc.LogoutFilter"> 
+        <property name="redirectUrl" value="/home/index" /> 
+    </bean>
+
+	<!-- Shiro主过滤器本身功能十分强大，其强大之处就在于它支持任何基于URL路径表达式的、
+	自定义的过滤器的执行 Web应用中，Shiro可控制的Web请求必须经过Shiro主过滤器的拦截，
+	Shiro对基于Spring的Web应用提供了完美的支持 -->
+	<bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+		<!-- Shiro的核心安全接口，这个属性是必须的 -->
+		<property name="securityManager" ref="securityManager"></property>
+		<!-- 要求登录时的链接(登录页面地址)，非必须的属性，默认会自动寻找Web工程根目录下的"/login.jsp"页面 -->
+		<property name="loginUrl" value="/home/goLogin"></property>
+		<!-- 登录成功后要跳转的连接(本例中此属性用不到，因为登录成功后的处理逻辑在LoginController里硬编码) -->
+		<!-- <property name="successUrl" value="/" ></property> -->
+		<!-- 用户访问未对其授权的资源时，所显示的连接 -->
+		<property name="unauthorizedUrl" value="/home/goLogin"></property>
+
+		<property name="filterChainDefinitions"><!-- 设置为authc，每次开启浏览器需要重新登陆，如果设置为user在此打开浏览器不需要登陆 
+				role多值配置roles["admin,guest"] -->
+			<value>
+				/home/*=anon
+				/order/*=roles[guest]
+				/user/*=authc
+				/frameMgt/*=roles[admin]
+				/newsMgt/*=roles[admin]
+				/logout=logout
+			</value>
+		</property>
+	</bean>
+
+	<!-- 启Shiro的注解(如@RequiresRoles，@RequiresPermissions)，需借助SpringAOP扫描使用Shiro注解的类， 
+		并在必要时进行安全逻辑验证 -->
+	<bean
+		class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"></bean>
+	<bean
+		class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+		<property name="securityManager" ref="securityManager"></property>
+	</bean>
 
 </beans>
